@@ -68,6 +68,64 @@ router.put('/players/:id', updatePlayer);
 router.post('/players', createPlayer);
 router.delete('/players/:id', deletePlayer);
 
+// ---------------------------------------------------------------------------
+// NEW HOMEWORK 3 ENDPOINTS
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /games
+ * Returns all games in the database.
+ */
+router.get('/games', (request: Request, response: Response, next: NextFunction): void => {
+    db.manyOrNone('SELECT * FROM Game ORDER BY id')
+        .then((data): void => {
+            response.send(data);
+        })
+        .catch((error: Error): void => {
+            next(error);
+        });
+});
+
+/**
+ * GET /games/:id
+ * Returns the name and score of every player in a specific game.
+ */
+router.get('/games/:id', (request: Request, response: Response, next: NextFunction): void => {
+    db.manyOrNone(
+        `SELECT Player.name, PlayerGame.score
+         FROM Player
+         JOIN PlayerGame ON Player.id = PlayerGame.playerID
+         WHERE PlayerGame.gameID = ${'id'}
+         ORDER BY Player.name`,
+        request.params
+    )
+        .then((data): void => {
+            returnDataOr404(response, data);
+        })
+        .catch((error: Error): void => {
+            next(error);
+        });
+});
+
+/**
+ * DELETE /games/:id
+ * Deletes a game and all associated PlayerGame mappings.
+ */
+router.delete('/games/:id', (request: Request, response: Response, next: NextFunction): void => {
+    db.tx((t) => {
+        return t.none('DELETE FROM PlayerGame WHERE gameID=${id}', request.params)
+            .then(() => {
+                return t.oneOrNone('DELETE FROM Game WHERE id=${id} RETURNING id', request.params);
+            });
+    })
+        .then((data): void => {
+            returnDataOr404(response, data);
+        })
+        .catch((error: Error): void => {
+            next(error);
+        });
+});
+
 // For testing only; vulnerable to SQL injection!
 // router.get('/bad/players/:id', readPlayerBad);
 
